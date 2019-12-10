@@ -1,0 +1,1 @@
+include ':app', ':photograph', ':camera2video', ':mycameravideo'
