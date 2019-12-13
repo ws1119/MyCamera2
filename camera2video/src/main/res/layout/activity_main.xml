@@ -19,20 +19,25 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true">
         <Button
-            android:layout_width="wrap_content"
+            android:layout_width="55dp"
             android:layout_height="wrap_content"
             android:id="@+id/record"
-            android:text="record"/>
+            android:text="开始"/>
         <Button
-            android:layout_width="wrap_content"
+            android:layout_width="55dp"
             android:layout_height="wrap_content"
-            android:text="pause"
+            android:text="暂停"
             android:id="@+id/pause"/>
         <Button
-            android:layout_width="wrap_content"
+            android:layout_width="55dp"
             android:layout_height="wrap_content"
             android:id="@+id/stop"
-            android:text="stop"/>
+            android:text="停止"/>
+        <Button
+            android:layout_width="55dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/picture"
+            android:text="拍照"/>
         <ImageView
             android:id="@+id/image"
             android:layout_width="100dp"
@@ -47,5 +52,6 @@
         android:text="还未开始录制视频"
         android:layout_marginBottom="20dp"
         android:textColor="#ffff"/>
+
 
 </RelativeLayout>

@@ -1,13 +1,18 @@
 package com.example.photograph;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -18,6 +23,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
@@ -31,9 +37,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -53,6 +61,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.zip.Inflater;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -74,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap ThumbnailImage;
     private File file;
     private File path;
+    private static  final  int IMAGE=1;
     static
     {//为了照片竖直显示
         ORIENTATION.append(Surface.ROTATION_0,90);
@@ -93,11 +103,11 @@ public class MainActivity extends AppCompatActivity {
         take.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                /*try {
+                try {
                     mCameraSession.stopRepeating();
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
-                }*/
+                }
                 takePicture();
 
 
@@ -170,11 +180,14 @@ public class MainActivity extends AppCompatActivity {
             try {
                 matchingSize= getMatchingSize();
                 mSurfaceTexture = mTextureView.getSurfaceTexture();
-                Log.v("------------", String.valueOf(matchingSize));
                 mSurfaceTexture.setDefaultBufferSize(matchingSize.getWidth(),matchingSize.getHeight());
                 mSurface = new Surface(mSurfaceTexture);
                 //创建预览
                 builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                //设置自动对焦模式
+                builder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                //设置自动曝光模式
+                builder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
                 builder.addTarget(mSurface);
                 //创建会话
                 mCameraDevice.createCaptureSession(Arrays.asList(mSurface,mImageReader.getSurface()),mCaptureSessionStateCallback,mChildHandler);
@@ -254,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initImageReader(){
-        mImageReader = ImageReader.newInstance(1920,1080, ImageFormat.JPEG,2);
+        mImageReader = ImageReader.newInstance(1920,1080, ImageFormat.JPEG,20);
         mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
             public void onImageAvailable(ImageReader reader) {
@@ -284,11 +297,19 @@ public class MainActivity extends AppCompatActivity {
                     imageView.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            Intent intent = new Intent(MainActivity.this,ShowImageActivity.class);
+                            /*Intent intent = new Intent(MainActivity.this,ShowImageActivity.class);
                             Bundle bundle = new Bundle();
                             bundle.putSerializable("image",file.toString());
                             intent.putExtras(bundle);
+                            startActivity(intent);*/
+                            //Intent intent = new Intent(Intent.ACTION_PICK, null);
+                            //intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
+                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                            Uri mUri =  FileProvider.getUriForFile(getApplicationContext(),"com.example.photograph.FileProvider",file);
+                            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);//授予临时权限
+                            intent.setDataAndType(mUri,"image/*");
                             startActivity(intent);
+
                         }
                     });
                     fileOutputStream.flush();
@@ -303,11 +324,17 @@ public class MainActivity extends AppCompatActivity {
         },mChildHandler);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+    }
+
 
 
     /*
-    获取匹配的大小
-     */
+        获取匹配的大小
+         */
     private Size getMatchingSize(){
         Size selectSize = null;
         float selectProportion = 0;
@@ -358,11 +385,55 @@ public class MainActivity extends AppCompatActivity {
             captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
 
             Surface surface = mImageReader.getSurface();
+
+            //设置自动对焦模式
+            /*captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            //设置自动曝光模式
+            captureBuilder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);*/
             captureBuilder.addTarget(surface);
+            Log.v("ppppppppppppp", String.valueOf(surface));
 
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, 90);
             CaptureRequest request = captureBuilder.build();
-            mCameraSession.capture(request,null,mChildHandler);
+            long date = System.currentTimeMillis();
+            mCameraSession.capture(request, new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request, long timestamp, long frameNumber) {
+                    super.onCaptureStarted(session, request, timestamp, frameNumber);
+                }
+
+                @Override
+                public void onCaptureProgressed(CameraCaptureSession session, CaptureRequest request, CaptureResult partialResult) {
+                    super.onCaptureProgressed(session, request, partialResult);
+                }
+
+                @Override
+                public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
+                    long data1 = System.currentTimeMillis();
+                    Log.v("d1d1d1d1", String.valueOf(data1));
+                }
+
+                @Override
+                public void onCaptureFailed(CameraCaptureSession session, CaptureRequest request, CaptureFailure failure) {
+                    super.onCaptureFailed(session, request, failure);
+                }
+
+                @Override
+                public void onCaptureSequenceCompleted(CameraCaptureSession session, int sequenceId, long frameNumber) {
+                    super.onCaptureSequenceCompleted(session, sequenceId, frameNumber);
+                }
+
+                @Override
+                public void onCaptureSequenceAborted(CameraCaptureSession session, int sequenceId) {
+                    super.onCaptureSequenceAborted(session, sequenceId);
+                }
+
+                @Override
+                public void onCaptureBufferLost(CameraCaptureSession session, CaptureRequest request, Surface target, long frameNumber) {
+                    super.onCaptureBufferLost(session, request, target, frameNumber);
+                }
+            }, mChildHandler);
             Toast.makeText( MainActivity.this, "拍照成功", Toast.LENGTH_SHORT ).show();
 
 
@@ -416,13 +487,52 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mSurface != null)
-        {
-            mSurface.release();
-            mSurface=null;
+        if (builder != null) {
+            builder.removeTarget(mSurface);
+            builder = null;
         }
+        if (mSurface != null) {
+            mSurface.release();
+            mSurface = null;
+        }
+        if (mSurfaceTexture != null){
+            mSurfaceTexture.release();
+            mSurfaceTexture = null;
+        }
+        if (mCameraSession != null) {
+            try {
+                mCameraSession.stopRepeating();
+                mCameraSession.abortCaptures();
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+            mCameraSession = null;
+        }
+
+        if (mCameraDevice != null) {
+            mCameraDevice.close();
+            mCameraDevice = null;
+        }
+        if (mChildHandler != null) {
+            mChildHandler.removeCallbacksAndMessages(null);
+            mChildHandler = null;
+        }
+        if (mHandlerThread != null) {
+            mHandlerThread.quitSafely();
+            mHandlerThread = null;
+        }
+
+        mCameraManager = null;
+        mCaptureSessionStateCallback = null;
+        mCaptureSessionCaptureCallback = null;
+        mStateCallback = null;
     }
 
 
